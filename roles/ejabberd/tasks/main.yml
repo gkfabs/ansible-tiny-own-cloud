@@ -1,0 +1,27 @@
+---
+
+- name: Install packages
+  apt:
+    pkg:
+      - ejabberd
+    state: latest
+
+- name: Template ejabberd.yml
+  template:
+    src: templates/ejabberd.yml.j2
+    dest: /etc/ejabberd/ejabberd.yml
+
+- name: Restart service to pick up config changes
+  systemd:
+    state: restarted
+    daemon_reload: true
+    enabled: true
+    name: ejabberd
+
+- name: List users
+  command: "ejabberdctl registered_users {{ domain }}"
+  register: ejabberd_list_users
+
+- name: Create users
+  command: "ejabberdctl register {{ item.user }} {{ domain }} {{ item.password }}"
+  loop: "{{ ejabberd_users | map(attribute='user') | difference(ejabberd_list_users.stdout_lines) }}"

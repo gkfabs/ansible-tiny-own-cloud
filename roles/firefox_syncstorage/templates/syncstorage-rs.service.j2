@@ -1,0 +1,15 @@
+[Unit]
+Description=Mozilla Sync Storage built with Rust
+After=network.target
+
+[Service]
+Type=simple
+User={{ firefox_syncstorage_user }}
+Environment="PATH=./venv/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games"
+ExecStart=/opt/syncstorage-rs-{{ firefox_syncstorage_version }}/.cargo/bin/syncserver --config /opt/syncstorage-rs-{{ firefox_syncstorage_version }}/config/local.toml
+WorkingDirectory=/opt/syncstorage-rs-{{ firefox_syncstorage_version }}
+Restart=always
+#on-failure
+
+[Install]
+WantedBy=multi-user.target

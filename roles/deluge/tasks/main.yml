@@ -1,0 +1,25 @@
+---
+
+- name: Install packages
+  include_role:
+    name: totaldebug.deluge
+  vars:
+    deluge_core_conf_template: files/core.conf
+    deluge_web: false
+    deluge_plugins:
+      - Blocklist
+      - Label
+
+- name: "Create user {{ deluge_user }}"
+  lineinfile:
+    path: "/var/lib/deluge/.config/deluge/auth"
+    line: "{{ deluge_user }}:{{ deluge_password }}:10"
+
+- name: Set quota
+  command: "setquota -u deluge 4G 5G 0 0 /"
+
+- name: Restart service to pick up config changes
+  systemd:
+    state: restarted
+    daemon_reload: true
+    name: deluged

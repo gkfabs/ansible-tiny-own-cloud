@@ -1,0 +1,9 @@
+---
+
+- name: Install packages
+  apt:
+    pkg:
+      - virtualenv
+      - python3-pip
+      - libpython3.11-dev
+    state: latest

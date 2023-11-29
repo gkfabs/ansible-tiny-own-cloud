@@ -1,0 +1,29 @@
+server {
+#	listen 443 ssl;
+#	listen [::]:443 ssl;
+	server_name {{ sabre_fqdn }};
+
+	root /var/www/sabre;
+
+        location ~ /(\.ht|Core|Specific) {
+                deny all;
+                return 404;
+        }
+
+	location ~ ^(.+?\.php)(/.*)?$ {
+                #try_files $1 = 404;
+
+		include snippets/fastcgi-php.conf;
+                fastcgi_param SCRIPT_FILENAME $document_root$1;
+                fastcgi_param PATH_INFO $2;
+		fastcgi_pass unix:/run/php/php-fpm.sock;
+	}
+
+	location / {
+		rewrite ^/.well-known/caldav /calendarserver.php/ redirect;
+		rewrite ^/.well-known/carddav /addressbookserver.php/ redirect;
+	}
+
+#    ssl_certificate /etc/letsencrypt/live/{{ sabre_fqdn }}/fullchain.pem; # managed by Certbot
+#    ssl_certificate_key /etc/letsencrypt/live/{{ sabre_fqdn }}/privkey.pem; # managed by Certbot
+}

@@ -1,0 +1,64 @@
+---
+
+- name: Install packages
+  apt:
+    pkg:
+      - certbot
+      - python3-certbot-nginx
+      - python3-certbot-dns-gandi
+    state: latest
+
+- name: Setup cron for weekly cert renew
+  cron:
+    name: certbot renew
+    minute: 20
+    hour: 2
+    weekday: 0
+    job: "certbot renew --renew-hook 'systemctl reload nginx; systemctl reload dovecot; systemctl reload postfix' --quiet"
+
+- name: Check whether the lets encrypt certificate exists
+  stat:
+    path: "/etc/letsencrypt/live/{{ domain }}/fullchain.pem"
+#  register: live_cert
+
+- name: Get lets encrypt certificate
+  command: "certbot certonly --standalone -d {{ domain }} -d {{ synapse_fqdn }} -m {{ mail_default_user }} --agree-tos -n"
+#  when: live_cert.stat.exists == False
+
+- name: Lookup all certificate files
+  find:
+    path: "/etc/letsencrypt/archive/{{ domain }}/"
+    file_type: file
+    patterns: "*"
+  register: certificatelist
+
+- name: Force permissions for certificates to 644
+  file:
+    path: "{{ item.path }}"
+    state: file
+    mode: "0644"
+  with_items: "{{ certificatelist.files }}"
+
+- name: Force permissions for certificates
+  file:
+    path: "/etc/letsencrypt/live/"
+    state: directory
+    mode: "0755"
+
+- name: Force permissions for certificates
+  file:
+    path: "/etc/letsencrypt/archive/"
+    state: directory
+    mode: "0755"
+
+- name: Force permissions for certificates
+  file:
+    path: "/etc/letsencrypt/live/{{ domain }}/"
+    state: directory
+    mode: "0755"
+
+- name: Force permissions for certificates
+  file:
+    path: "/etc/letsencrypt/archive/{{ domain }}/"
+    state: directory
+    mode: "0755"

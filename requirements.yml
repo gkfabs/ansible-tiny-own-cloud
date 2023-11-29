@@ -1,0 +1,8 @@
+---
+roles:
+  - src: 'totaldebug.deluge'
+    version: '1.2.0'
+
+collections:
+  - name: 'community.mysql'
+    version: '3.8.0'

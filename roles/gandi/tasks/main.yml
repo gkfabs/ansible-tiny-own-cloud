@@ -1,0 +1,78 @@
+---
+
+- name: "Create {{ firefox_fqdn }}"
+  community.general.gandi_livedns:
+    domain: "{{ domain }}"
+    type: A
+    record: firefox
+    values:
+    - "{{ ansible_default_ipv4.address }}"
+    ttl: 86400
+    api_key: "{{ gandi_api_key }}"
+  register: record
+
+- name: "Create {{ imap_fqdn }}"
+  community.general.gandi_livedns:
+    domain: "{{ domain }}"
+    type: A
+    record: imap
+    values:
+    - "{{ ansible_default_ipv4.address }}"
+    ttl: 86400
+    api_key: "{{ gandi_api_key }}"
+  register: record
+
+- name: "Create {{ mail_fqdn }}"
+  community.general.gandi_livedns:
+    domain: "{{ domain }}"
+    type: A
+    record: mail
+    values:
+    - "{{ ansible_default_ipv4.address }}"
+    ttl: 86400
+    api_key: "{{ gandi_api_key }}"
+  register: record
+
+- name: "Create {{ sabre_fqdn }}"
+  community.general.gandi_livedns:
+    domain: "{{ domain }}"
+    type: A
+    record: sabre
+    values:
+    - "{{ ansible_default_ipv4.address }}"
+    ttl: 86400
+    api_key: "{{ gandi_api_key }}"
+  register: record
+
+- name: "Create {{ smtp_fqdn }}"
+  community.general.gandi_livedns:
+    domain: "{{ domain }}"
+    type: A
+    record: smtp
+    values:
+    - "{{ ansible_default_ipv4.address }}"
+    ttl: 86400
+    api_key: "{{ gandi_api_key }}"
+  register: record
+
+- name: "Create {{ synapse_fqdn }}"
+  community.general.gandi_livedns:
+    domain: "{{ domain }}"
+    type: A
+    record: synapse
+    values:
+    - "{{ ansible_default_ipv4.address }}"
+    ttl: 86400
+    api_key: "{{ gandi_api_key }}"
+  register: record
+
+- name: "Create {{ turn_fqdn }}"
+  community.general.gandi_livedns:
+    domain: "{{ domain }}"
+    type: A
+    record: turn
+    values:
+    - "{{ ansible_default_ipv4.address }}"
+    ttl: 86400
+    api_key: "{{ gandi_api_key }}"
+  register: record

@@ -1,0 +1,178 @@
+---
+
+- name: Download and extract syncstorage-rs
+  unarchive:
+    src: "https://github.com/mozilla-services/syncstorage-rs/archive/refs/tags/{{ firefox_syncstorage_version }}.tar.gz"
+    dest: "/opt/"
+    remote_src: "yes"
+
+- name: "Create group {{ firefox_syncstorage_user }}"
+  group:
+    name: "{{ firefox_syncstorage_user }}"
+
+- name: "Create user {{ firefox_syncstorage_user }}"
+  user:
+    name: "{{ firefox_syncstorage_user }}"
+    shell: "/bin/bash"
+    create_home: false
+    home: "/opt/syncstorage-rs-{{ firefox_syncstorage_version }}"
+    group: "{{ firefox_syncstorage_user }}"
+
+- name: "Chown home for user {{ firefox_syncstorage_user }}"
+  file:
+    path: "/opt/syncstorage-rs-{{ firefox_syncstorage_version }}"
+    state: directory
+    recurse: yes
+    owner: "{{ firefox_syncstorage_user }}"
+    group: "{{ firefox_syncstorage_user }}"
+
+- name: Install diesel
+  command: "cargo install diesel_cli --no-default-features --features 'mysql'"
+  become: yes
+  become_user: "{{ firefox_syncstorage_user }}"
+  args:
+    chdir: "/opt/syncstorage-rs-{{ firefox_syncstorage_version }}/"
+
+- name: Install syncserver
+  command: "cargo install --path ./syncserver --no-default-features --features=syncstorage-db/mysql --locked"
+  become: yes
+  become_user: "{{ firefox_syncstorage_user }}"
+  args:
+    chdir: "/opt/syncstorage-rs-{{ firefox_syncstorage_version }}/"
+
+- name: "Create a new database '{{ firefox_syncstorage_db }}'"
+  community.mysql.mysql_db:
+    name: "{{ firefox_syncstorage_db }}"
+    state: present
+    login_password: "{{ db_root_password }}"
+    login_unix_socket: /run/mysqld/mysqld.sock
+
+- name: "Create database user '{{ firefox_syncstorage_user }}'"
+  community.mysql.mysql_user:
+    name: "{{ firefox_syncstorage_user }}"
+    password: "{{ firefox_syncstorage_db_password }}"
+    priv: '{{ firefox_syncstorage_db }}.*:ALL'
+    state: present
+    login_password: "{{ db_root_password }}"
+    login_unix_socket: /run/mysqld/mysqld.sock
+
+- name: "Create a new database '{{ firefox_tokenserver_db }}'"
+  community.mysql.mysql_db:
+    name: "{{ firefox_tokenserver_db }}"
+    state: present
+    login_password: "{{ db_root_password }}"
+    login_unix_socket: /run/mysqld/mysqld.sock
+
+- name: "Create database user '{{ firefox_tokenserver_user }}'"
+  community.mysql.mysql_user:
+    name: "{{ firefox_tokenserver_user }}"
+    password: "{{ firefox_tokenserver_db_password }}"
+    priv: '{{ firefox_tokenserver_db }}.*:ALL'
+    state: present
+    login_password: "{{ db_root_password }}"
+    login_unix_socket: /run/mysqld/mysqld.sock
+
+- name: "Migrate {{ firefox_syncstorage_db }}"
+  command: "./.cargo/bin/diesel --database-url \"mysql://{{ firefox_syncstorage_user }}:{{ firefox_syncstorage_db_password }}@localhost/{{ firefox_syncstorage_db }}\" migration --migration-dir syncstorage-mysql/migrations run"
+  become: yes
+  become_user: "{{ firefox_syncstorage_user }}"
+  args:
+    chdir: "/opt/syncstorage-rs-{{ firefox_syncstorage_version }}/"
+
+- name: "Migrate {{ firefox_tokenserver_db }}"
+  command: "./.cargo/bin/diesel --database-url \"mysql://{{ firefox_tokenserver_user }}:{{ firefox_tokenserver_db_password }}@localhost/{{ firefox_tokenserver_db }}\" migration --migration-dir syncstorage-mysql/migrations run"
+  become: yes
+  become_user: "{{ firefox_syncstorage_user }}"
+  args:
+    chdir: "/opt/syncstorage-rs-{{ firefox_syncstorage_version }}/"
+
+- name: "Add the sync endpoint in database '{{ firefox_tokenserver_db }}'"
+  community.mysql.mysql_query:
+    login_db: "{{ firefox_tokenserver_db }}"
+    login_user: "{{ firefox_tokenserver_user }}"
+    login_password: "{{ firefox_tokenserver_db_password }}"
+    login_unix_socket: /run/mysqld/mysqld.sock
+    query: "INSERT IGNORE INTO services (id, service, pattern) VALUES (1, \"sync-1.5\", \"{node}/1.5/{uid}\");"
+
+- name: "Add the node in database '{{ firefox_tokenserver_db }}'"
+  community.mysql.mysql_query:
+    login_db: "{{ firefox_tokenserver_db }}"
+    login_user: "{{ firefox_tokenserver_user }}"
+    login_password: "{{ firefox_tokenserver_db_password }}"
+    login_unix_socket: /run/mysqld/mysqld.sock
+    query: "INSERT IGNORE INTO nodes (id, service, node, available, current_load, capacity, downed, backoff) VALUES (1, 1, \"https://{{ firefox_fqdn }}\", 0, 1, 1, 0, 0);"
+
+- name: Install syncstorage python requirements
+  pip:
+    requirements: "/opt/syncstorage-rs-{{ firefox_syncstorage_version }}/requirements.txt"
+    virtualenv: "/opt/syncstorage-rs-{{ firefox_syncstorage_version }}/venv/"
+  become: yes
+  become_user: "{{ firefox_syncstorage_user }}"
+
+- name: Install tokenserver python requirements
+  pip:
+    requirements: "/opt/syncstorage-rs-{{ firefox_syncstorage_version }}/tools/tokenserver/requirements.txt"
+    virtualenv: "/opt/syncstorage-rs-{{ firefox_syncstorage_version }}/venv/"
+  become: yes
+  become_user: "{{ firefox_syncstorage_user }}"
+
+- name: "Template /opt/syncstorage-rs-{{ firefox_syncstorage_version }}/config/local.toml"
+  template:
+    src: templates/local.toml.j2
+    dest: "/opt/syncstorage-rs-{{ firefox_syncstorage_version }}/config/local.toml"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Template /etc/systemd/system/syncstorage-rs.service
+  template:
+    src: templates/syncstorage-rs.service.j2
+    dest: /etc/systemd/system/syncstorage-rs.service
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Add mysql link
+  file:
+    src: /usr/lib/x86_64-linux-gnu/libmariadb.so.3
+    dest: /usr/lib/x86_64-linux-gnu/libmysqlclient.so
+    state: link
+
+- name: Restart service to pick up config changes
+  systemd:
+    state: restarted
+    daemon_reload: true
+    enabled: true
+    name: syncstorage-rs
+
+- name: Template /etc/nginx/sites-available/firefox
+  template:
+    src: templates/nginx_firefox.j2
+    dest: /etc/nginx/sites-available/firefox
+
+- name: Enable new site
+  file:
+    src: /etc/nginx/sites-available/firefox
+    dest: /etc/nginx/sites-enabled/firefox
+    state: link
+
+- name: Check whether the lets encrypt certificate exists
+  stat:
+    path: /etc/letsencrypt/live/{{ firefox_fqdn }}/fullchain.pem
+  register: live_cert
+
+- name: Get lets encrypt certificate
+  command: "certbot certonly --nginx -d {{ firefox_fqdn }} -m {{ mail_default_user }} --agree-tos -n"
+  when: live_cert.stat.exists == False
+
+- name: Remove comments
+  replace:
+    path: /etc/nginx/sites-available/firefox
+    regexp: '^#'
+    replace: ''
+
+- name: Restart service to pick up config changes
+  systemd:
+    state: restarted
+    daemon_reload: true
+    name: nginx

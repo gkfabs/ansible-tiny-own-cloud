@@ -1,0 +1,19 @@
+---
+# Create users
+
+- name: "Create group {{ unix_user }}"
+  group:
+    name: "{{ unix_user }}"
+
+- name: "Create user {{ unix_user }}"
+  user:
+    name: "{{ unix_user }}"
+    password: "{{ unix_password|password_hash('sha512') }}"
+    shell: "/bin/bash"
+    group: "{{ unix_user }}"
+    groups: sudo
+
+- name: "Add local authorized keys to {{ unix_user }}"
+  authorized_key:
+    user: "{{ unix_user }}"
+    key: "{{ lookup('file', lookup('env','HOME') + '/.ssh/id_rsa.pub') }}"

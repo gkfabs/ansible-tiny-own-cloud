@@ -1,0 +1,5 @@
+{% for user in sabre_users %}
+{% set digest = user.user + ':' + sabre_realm + ':' + user.password %}
+{% set md5 = digest|hash('md5') %}
+{{ user.user }}:{{ sabre_realm }}:{{ md5 }}
+{% endfor %}

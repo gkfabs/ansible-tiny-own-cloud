@@ -1,0 +1,71 @@
+---
+
+- name: Install packages
+  apt:
+    pkg:
+      - matrix-synapse
+    state: latest
+
+- name: Template homeserver.yaml
+  template:
+    src: templates/homeserver.yaml.j2
+    dest: /etc/matrix-synapse/homeserver.yaml
+
+- name: Restart service to pick up config changes
+  systemd:
+    state: restarted
+    daemon_reload: true
+    enabled: true
+    name: matrix-synapse
+
+- name: Template /etc/nginx/sites-available/matrix
+  template:
+    src: templates/nginx_matrix.j2
+    dest: /etc/nginx/sites-available/matrix
+
+- name: Enable new site
+  file:
+    src: /etc/nginx/sites-available/matrix
+    dest: /etc/nginx/sites-enabled/matrix
+    state: link
+
+- name: Remove comments
+  replace:
+    path: /etc/nginx/sites-available/matrix
+    regexp: '^#'
+    replace: ''
+
+- name: Create directory /var/www/html/
+  file:
+    name: /var/www/html/
+    state: directory
+    mode: '0755'
+    owner: www-data
+    group: www-data
+
+- name: Create directory /var/www/html/.well-known
+  file:
+    name: /var/www/html/.well-known
+    state: directory
+    mode: '0755'
+    owner: www-data
+    group: www-data
+
+- name: Create directory /var/www/html/.well-known/matrix
+  file:
+    name: /var/www/html/.well-known/matrix
+    state: directory
+    mode: '0755'
+    owner: www-data
+    group: www-data
+
+- name: Template /var/www/html/.well-known/matrix/server
+  template:
+    src: templates/server.j2
+    dest: /var/www/html/.well-known/matrix/server
+
+- name: Restart service to pick up config changes
+  systemd:
+    state: restarted
+    daemon_reload: true
+    name: nginx

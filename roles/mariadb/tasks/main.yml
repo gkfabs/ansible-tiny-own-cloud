@@ -1,0 +1,9 @@
+---
+
+- name: Install mariadb
+  apt:
+    pkg:
+      - default-mysql-server
+      - libmariadb-dev
+      - python3-pymysql
+    state: latest

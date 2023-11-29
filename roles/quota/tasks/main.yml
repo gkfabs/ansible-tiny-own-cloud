@@ -1,0 +1,29 @@
+- name: Install packages
+  apt:
+    name: quota
+    state: present
+
+- name: Load module
+  modprobe:
+    name: quota_v2
+    state: present
+
+- name: Check whether quota is on /
+  command: "quota -v"
+  register: quota_on
+
+- name: Ensure quota is active on /
+  mount:
+    path: /
+    opts: usrquota,grpquota,errors=remount-ro
+    state: remounted
+  when: quota_on.stdout_lines|length == 0
+
+- name: Activate quota on /
+  command: "quotacheck -ugm / -f"
+  when: quota_on.stdout_lines|length == 0
+
+- name: Turn quota on /
+  command: "quotaon -v /"
+  ignore_errors: true
+  when: quota_on.stdout_lines|length == 0

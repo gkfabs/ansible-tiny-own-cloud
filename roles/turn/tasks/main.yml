@@ -1,0 +1,19 @@
+---
+
+- name: Install packages
+  apt:
+    pkg:
+      - coturn
+    state: latest
+
+- name: Template turnserver.conf
+  template:
+    src: templates/turnserver.conf.j2
+    dest: /etc/turnserver.conf
+
+- name: Restart service to pick up config changes
+  systemd:
+    state: restarted
+    daemon_reload: true
+    enabled: true
+    name: coturn

@@ -1,0 +1,156 @@
+---
+
+- name: Install packages
+  apt:
+    pkg:
+      - dovecot-core
+      - dovecot-imapd
+      - dovecot-lmtpd
+      - dovecot-mysql
+      - dovecot-sieve
+      - dovecot-managesieved
+    state: latest
+
+- name: Delete default config
+  file:
+    state: absent
+    path: /etc/dovecot/
+  tags: dovecot
+
+- name: Create config directory
+  file:
+    path: /etc/dovecot
+    state: directory
+  tags: dovecot
+
+- name: Check whether the lets encrypt certificate exists
+  stat:
+    path: /etc/letsencrypt/live/{{ mail_fqdn }}/fullchain.pem
+  register: live_cert
+  tags: dovecot
+
+- name: Get lets encrypt certificate
+  command: "certbot certonly --standalone -d {{ mail_fqdn }} -d {{ imap_fqdn }} -d {{ smtp_fqdn }} -m {{ mail_default_user }} --agree-tos -n"
+  when: live_cert.stat.exists == False
+  tags: dovecot
+
+- name: "Create a new database '{{ dovecot_db }}'"
+  community.mysql.mysql_db:
+    name: "{{ dovecot_db }}"
+    state: present
+    login_password: "{{ db_root_password }}"
+    login_unix_socket: /run/mysqld/mysqld.sock
+  tags: dovecot
+
+- name: "Create database user '{{ dovecot_db_user }}'"
+  community.mysql.mysql_user:
+    name: "{{ dovecot_db_user }}"
+    password: "{{ dovecot_db_password }}"
+    priv: '{{ dovecot_db }}.*:ALL'
+    state: present
+    login_password: "{{ db_root_password }}"
+    login_unix_socket: /run/mysqld/mysqld.sock
+  tags: dovecot
+
+- name: Template dovecot.conf
+  template:
+    src: templates/dovecot.j2
+    dest: /etc/dovecot/dovecot.conf
+    mode: "0644"
+  tags: dovecot
+
+- name: Template dovecot-sql.conf
+  template:
+    src: templates/dovecot-sql.j2
+    dest: /etc/dovecot/dovecot-sql.conf
+    mode: "0440"
+  tags: dovecot
+
+- name: Copy spam-global.sieve
+  copy:
+    src: files/spam-global.sieve
+    dest: /var/vmail/sieve/global/spam-global.sieve
+    owner: vmail
+    group: vmail
+    mode: "0644"
+  tags: dovecot
+
+- name: Copy learn-spam.sieve
+  copy:
+    src: files/learn-spam.sieve
+    dest: /var/vmail/sieve/global/learn-spam.sieve
+    owner: vmail
+    group: vmail
+    mode: "0644"
+  tags: dovecot
+
+- name: Copy learn-ham.sieve
+  copy:
+    src: files/learn-ham.sieve
+    dest: /var/vmail/sieve/global/learn-ham.sieve
+    owner: vmail
+    group: vmail
+    mode: "0644"
+  tags: dovecot
+
+- name: "Create schema in database '{{ dovecot_db }}'"
+  community.mysql.mysql_query:
+    login_db: "{{ dovecot_db }}"
+    login_user: "{{ dovecot_db_user }}"
+    login_password: "{{ dovecot_db_password }}"
+    login_unix_socket: /run/mysqld/mysqld.sock
+    query:
+      - "CREATE TABLE IF NOT EXISTS `domains` (`id` int unsigned NOT NULL AUTO_INCREMENT, `domain` varchar(255) NOT NULL, PRIMARY KEY (`id`), UNIQUE KEY (`domain`));"
+      - "CREATE TABLE IF NOT EXISTS `accounts` (`id` int unsigned NOT NULL AUTO_INCREMENT, `username` varchar(64) NOT NULL, `domain` varchar(255) NOT NULL, `password` varchar(255) NOT NULL, `quota` int unsigned DEFAULT '0', `enabled` boolean DEFAULT '0', `sendonly` boolean DEFAULT '0', PRIMARY KEY (id), UNIQUE KEY (`username`, `domain`), FOREIGN KEY (`domain`) REFERENCES `domains` (`domain`));"
+      - "CREATE TABLE IF NOT EXISTS `aliases` ( `id` int unsigned NOT NULL AUTO_INCREMENT, `source_username` varchar(64) NOT NULL, `source_domain` varchar(255) NOT NULL, `destination_username` varchar(64) NOT NULL, `destination_domain` varchar(255) NOT NULL, `enabled` boolean DEFAULT '0', PRIMARY KEY (`id`), UNIQUE KEY (`source_username`, `source_domain`, `destination_username`, `destination_domain`), FOREIGN KEY (`source_domain`) REFERENCES `domains` (`domain`));"
+      - "CREATE TABLE IF NOT EXISTS `tlspolicies` ( `id` int unsigned NOT NULL AUTO_INCREMENT, `domain` varchar(255) NOT NULL, `policy` enum('none', 'may', 'encrypt', 'dane', 'dane-only', 'fingerprint', 'verify', 'secure') NOT NULL, `params` varchar(255), PRIMARY KEY (`id`), UNIQUE KEY (`domain`));"
+  tags: dovecot
+
+- name: "Create domain in database '{{ dovecot_db }}'"
+  community.mysql.mysql_query:
+    login_db: "{{ dovecot_db }}"
+    login_user: "{{ dovecot_db_user }}"
+    login_password: "{{ dovecot_db_password }}"
+    login_unix_socket: /run/mysqld/mysqld.sock
+    query: "INSERT IGNORE INTO domains (domain) VALUES ('{{ domain }}');"
+
+- name: "Generate dovecot password for users"
+  command: "doveadm pw -s SHA512-CRYPT -p '{{ item.password }}'"
+  loop: "{{ mail_users }}"
+  register: mail_users_encrypted_passwords
+
+- name: "Create mail users in database '{{ dovecot_db }}'"
+  community.mysql.mysql_query:
+    login_db: "{{ dovecot_db }}"
+    login_user: "{{ dovecot_db_user }}"
+    login_password: "{{ dovecot_db_password }}"
+    login_unix_socket: /run/mysqld/mysqld.sock
+    query: "INSERT IGNORE INTO accounts (username, domain, password, quota, enabled, sendonly) VALUES ('{{ item.item.user }}', '{{ domain }}', '{{ item.stdout }}', 2048, true, false);"
+  loop: "{{ mail_users_encrypted_passwords.results }}"
+  tags: dovecot
+
+- name: "Create mail alias in database '{{ dovecot_db }}'"
+  community.mysql.mysql_query:
+    login_db: "{{ dovecot_db }}"
+    login_user: "{{ dovecot_db_user }}"
+    login_password: "{{ dovecot_db_password }}"
+    login_unix_socket: /run/mysqld/mysqld.sock
+    query: "INSERT IGNORE INTO aliases (source_username, source_domain, destination_username, destination_domain, enabled) values ('{{ item.alias }}', '{{ domain }}', '{{ item.user }}', '{{ domain }}', true);"
+  loop: "{{ mail_user_alias }}"
+  tags: dovecot
+
+- name: "Create tlspolicies in database '{{ dovecot_db }}'"
+  community.mysql.mysql_query:
+    login_db: "{{ dovecot_db }}"
+    login_user: "{{ dovecot_db_user }}"
+    login_password: "{{ dovecot_db_password }}"
+    login_unix_socket: /run/mysqld/mysqld.sock
+    query: "INSERT IGNORE INTO tlspolicies (domain, policy, params) values ('{{ domain }}', 'secure', 'match=.{{ domain }}');"
+  tags: dovecot
+
+- name: Restart service to pick up config changes
+  systemd:
+    state: restarted
+    daemon_reload: true
+    name: dovecot
+  tags: dovecot

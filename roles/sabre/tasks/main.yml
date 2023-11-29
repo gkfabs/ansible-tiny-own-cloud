@@ -1,0 +1,133 @@
+---
+
+- name: Install packages
+  apt:
+    pkg:
+      - php-sabre-dav
+      - php-sabre-vobject
+    state: latest
+
+- name: Copy diff on remote
+  copy:
+    src: files/php_compatibility.diff
+    dest: /root/php_compatibility.diff
+
+- name: Apply diff if necessary
+  shell:
+    chdir: /
+    cmd: "patch -p1 -R --dry-run -f < /root/php_compatibility.diff || patch -p1 -R -f < /root/php_compatibility.diff"
+
+- name: Remove diff on remote
+  file:
+    path: /root/php_compatibility.diff
+    state: absent
+
+- name: "Create a new database '{{ sabre_db }}'"
+  community.mysql.mysql_db:
+    name: "{{ sabre_db }}"
+    state: present
+    login_password: "{{ db_root_password }}"
+    login_unix_socket: /run/mysqld/mysqld.sock
+
+- name: "Create database user '{{ sabre_db_user }}'"
+  community.mysql.mysql_user:
+    name: "{{ sabre_db_user }}"
+    password: "{{ sabre_db_password }}"
+    priv: '{{ sabre_db }}.*:ALL'
+    state: present
+    login_password: "{{ db_root_password }}"
+    login_unix_socket: /run/mysqld/mysqld.sock
+
+- name: Create root directory /var/www/sabre
+  file:
+    name: /var/www/sabre
+    state: directory
+    mode: '0755'
+
+- name: Create directory /var/www/sabre/public
+  file:
+    name: /var/www/sabre/public
+    state: directory
+    mode: '0777'
+    owner: www-data
+    group: www-data
+
+- name: Create directory /var/www/sabre/tmpdata
+  file:
+    name: /var/www/sabre/tmpdata
+    state: directory
+    mode: '0755'
+    owner: www-data
+    group: www-data
+
+- name: Create directory /var/www/sabre/public/org
+  file:
+    name: /var/www/sabre/public/org
+    state: directory
+    mode: '0755'
+    owner: www-data
+    group: www-data
+
+- name: Template /var/www/sabre/addressbookserver.php
+  template:
+    src: templates/addressbookserver.php.j2
+    dest: /var/www/sabre/addressbookserver.php
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Template /var/www/sabre/calendarserver.php
+  template:
+    src: templates/calendarserver.php.j2
+    dest: /var/www/sabre/calendarserver.php
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Template /var/www/sabre/fileserver.php
+  template:
+    src: templates/fileserver.php.j2
+    dest: /var/www/sabre/fileserver.php
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Template /var/www/sabre/htdigest
+  template:
+    src: templates/htdigest.j2
+    dest: /var/www/sabre/htdigest
+    owner: root
+    group: www-data
+    mode: 0640
+
+- name: Template /etc/nginx/sites-available/sabre
+  template:
+    src: templates/nginx_sabre.j2
+    dest: /etc/nginx/sites-available/sabre
+
+- name: Enable new site
+  file:
+    src: /etc/nginx/sites-available/sabre
+    dest: /etc/nginx/sites-enabled/sabre
+    state: link
+
+- name: Check whether the lets encrypt certificate exists
+  stat:
+    path: /etc/letsencrypt/live/{{ sabre_fqdn }}/fullchain.pem
+  register: live_cert
+
+- name: Get lets encrypt certificate
+  command: "certbot certonly --nginx -d {{ sabre_fqdn }} -m {{ mail_default_user }} --agree-tos -n"
+  when: live_cert.stat.exists == False
+
+- name: Remove comments
+  replace:
+    path: /etc/nginx/sites-available/sabre
+    regexp: '^#'
+    replace: ''
+
+- name: Restart service to pick up config changes
+  systemd:
+    state: restarted
+    daemon_reload: true
+    name: nginx

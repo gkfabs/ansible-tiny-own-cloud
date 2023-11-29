@@ -1,0 +1,24 @@
+---
+
+- hosts: all
+  roles:
+    - role: general
+    - role: users
+    - role: quota
+    - role: gandi
+    - role: deluge
+    - role: certbot
+    - role: nginx
+    - role: mariadb
+    - role: php
+    - role: rust
+    - role: python
+    - role: turn
+    - role: matrix_synapse
+    - role: ejabberd
+    - role: sabre
+    - role: firefox_syncstorage
+    - role: mail
+    - role: postfix
+    - role: dovecot
+    - role: rspamd

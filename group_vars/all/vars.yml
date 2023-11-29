@@ -1,0 +1,45 @@
+---
+
+domain: ???
+gandi_api_key: ???
+unix_user: ???
+unix_password: ???
+deluge_user: ???
+deluge_password: ???
+db_root_password: ???
+sabre_db: sabre
+sabre_db_user: sabre
+sabre_db_password: ???
+sabre_realm: ???
+sabre_fqdn: "sabre.{{ domain }}"
+sabre_users:
+  - user: ???
+    password: ???
+firefox_fqdn: "firefox.{{ domain }}"
+firefox_syncstorage_version: 0.14.1
+firefox_syncstorage_user: syncstorage
+firefox_syncstorage_db: syncstorage
+firefox_syncstorage_db_password: ???
+firefox_tokenserver_user: tokenserver
+firefox_tokenserver_db: tokenserver
+firefox_tokenserver_db_password: ???
+mail_fqdn: "mail.{{ domain }}"
+mail_default_user: "fabien@{{ domain }}"
+mail_users:
+  - user: ???
+    password: ???
+mail_user_alias:
+  - alias: ???
+    user: ???
+smtp_fqdn: "smtp.{{ domain }}"
+imap_fqdn: "imap.{{ domain }}"
+dovecot_db: vmail
+dovecot_db_user: vmail
+dovecot_db_password: ???
+rspamadm_pass: ???
+turn_fqdn: "turn.{{ domain }}"
+turn_shared_secret: ???
+synapse_fqdn: "synapse.{{ domain }}"
+ejabberd_users:
+  - user: ???
+    password: ???
