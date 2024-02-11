@@ -5,15 +5,11 @@
     name: nginx-full
     state: present
 
-- name: Remove default site
-  file:
-    path: /etc/nginx/sites-enabled/default
-    state: absent
 
-- name: Remove default site directory
-  file:
-    path: /var/www/html/
-    state: absent
+- name: Template index.html
+  template:
+    src: templates/index.html.j2
+    dest: /var/www/html/index.html
 
 - name: Restart service to pick up config changes
   systemd:
