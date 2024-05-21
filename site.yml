@@ -22,3 +22,5 @@
     - role: postfix
     - role: dovecot
     - role: rspamd
+    - role: ollama
+    - role: ollama_xmpp

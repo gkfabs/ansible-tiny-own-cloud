@@ -43,3 +43,7 @@ synapse_fqdn: "synapse.{{ domain }}"
 ejabberd_users:
   - user: ???
     password: ???
+  - user: ollama
+    password: ???
+www_fqdn: "www.{{ domain }}"
+ollama_xmpp_user: ollama_xmpp

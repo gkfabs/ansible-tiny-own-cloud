@@ -1,0 +1,17 @@
+---
+
+- name: Install packages
+  apt:
+    pkg:
+    - curl
+    state: latest
+
+- name: Download ollama installation script
+  get_url:
+    url: https://ollama.com/install.sh
+    dest: /tmp/ollama_install.sh
+    mode: '0770'
+
+- name: Execute ollama installation
+  shell: /tmp/ollama_install.sh
+

@@ -1,0 +1,16 @@
+[Unit]
+Description=Ollama Xmpp Client built with Python
+After=network.target
+
+[Service]
+Type=simple
+User={{ ollama_xmpp_user }}
+Environment="PATH=./venv/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games"
+ExecStart=/opt/ollama-xmpp/venv/bin/python3 ./src/main.py --xmpp_host {{ domain }} --xmpp_password  {{ (ejabberd_users | items2dict(key_name='user', value_name='password'))['ollama'] }}
+
+WorkingDirectory=/opt/ollama-xmpp
+Restart=always
+#on-failure
+
+[Install]
+WantedBy=multi-user.target

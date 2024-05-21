@@ -14,16 +14,17 @@
     pkg:
       - apt-transport-https
       - ca-certificates
-      - gpg
-      - gnupg-agent
-      - software-properties-common
-      - net-tools
-      - patch
-      - pkg-config
-      - openssl
-      - libssl-dev
       - cmake
       - g++
+      - git
+      - gnupg-agent
+      - gpg
+      - libssl-dev
+      - net-tools
+      - openssl
+      - patch
+      - pkg-config
+      - software-properties-common
       - sudo
     state: latest
 

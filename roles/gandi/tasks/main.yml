@@ -76,3 +76,14 @@
     ttl: 86400
     api_key: "{{ gandi_api_key }}"
   register: record
+
+- name: "Create {{ www_fqdn }}"
+  community.general.gandi_livedns:
+    domain: "{{ domain }}"
+    type: A
+    record: www
+    values:
+    - "{{ ansible_default_ipv4.address }}"
+    ttl: 86400
+    api_key: "{{ gandi_api_key }}"
+  register: record
