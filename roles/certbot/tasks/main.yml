@@ -14,7 +14,7 @@
     minute: 20
     hour: 2
     weekday: 0
-    job: "certbot renew --renew-hook 'systemctl reload nginx; systemctl reload dovecot; systemctl reload postfix' --quiet"
+    job: "certbot renew --renew-hook 'systemctl restart nginx; systemctl restart dovecot; systemctl restart postfix; systemctl restart ejabberd' --quiet"
 
 - name: Check whether the lets encrypt certificate exists
   stat:
