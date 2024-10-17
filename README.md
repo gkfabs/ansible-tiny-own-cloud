@@ -4,7 +4,7 @@ This is an Ansible-Playbook to setup a tiny server with a user, quota,
 some dns on gandi, deluge to download torrents, sabre to synchronize
 agenda and contact, a federated matrix chat server, a federated jabber
 chat server, a firefox syncstorage to synchronize bookmarks, password,
-etc.. and a mail.
+etc.., a mail and a vpn.
 
 ## Requirements
 

@@ -1,0 +1,19 @@
+---
+
+    - name: Create openvpn server
+      ansible.builtin.include_role:
+        name: buluma.openvpn
+      vars:
+        openvpn_role: "server"
+
+    - name: Copy certificates and keys from the server to the client
+      ansible.builtin.copy:
+        src: /etc/openvpn/easy-rsa/pki/{{ item }}
+        dest: /etc/openvpn/client/{{ item | basename }}
+        mode: "0640"
+        remote_src: true
+      loop:
+        - ca.crt
+        - issued/client.crt
+        - private/client.key
+        - ta.key

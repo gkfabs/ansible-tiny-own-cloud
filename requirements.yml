@@ -1,5 +1,7 @@
 ---
 roles:
+  - src: 'buluma.openvpn'
+    version: '24.3.31'
   - src: 'totaldebug.deluge'
     version: '1.2.0'
 
